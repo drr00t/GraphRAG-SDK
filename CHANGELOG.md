@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Token usage tracking on all public response objects (#227).** `IngestionResult`,
+  `RagResult`, and `RetrieverResult` now expose a `usage: TokenUsage` field
+  that reports the total `prompt_tokens`, `completion_tokens`, and
+  `embedding_tokens` consumed by the operation. `TokenUsage` is exported from
+  the top-level package and supports `+` / `+=` for easy aggregation over
+  batch results.
+
+  ```python
+  result = await rag.completion("Who is Alice?")
+  print(result.usage.prompt_tokens)      # LLM input tokens
+  print(result.usage.completion_tokens)  # LLM output tokens
+  print(result.usage.embedding_tokens)   # embedding tokens
+  ```
+
+  **Implementation notes:**
+  - Async provider methods (`ainvoke`, `ainvoke_messages`, `aembed_query`,
+    `aembed_documents`, `abatch_invoke`) now accept an optional keyword-only
+    `ctx: Context | None = None` parameter. Usage is recorded into the
+    accumulator at `ctx.usage` via `ctx.record_usage()`.
+  - `VectorStore.index_chunks()` accepts the same optional `ctx` and forwards
+    it to the embedder.
+  - Custom providers that do not override these methods, and all callers that
+    omit `ctx`, continue to work exactly as before — the change is fully
+    backward-compatible.
+  - 51 new unit tests in `tests/test_token_usage.py` covering model arithmetic,
+    context accumulation, provider instrumentation, and backward compatibility.
+  - See [docs/token-usage.md](docs/token-usage.md) for the full guide.
+
 ### Changed
 
 - **Default `embedding_dimension` lowered from 1536 to 256.** Aligns
